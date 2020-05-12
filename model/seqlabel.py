@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from .wordsequence import WordSequence
 from .crf import CRF
 
+
 class SeqLabel(nn.Module):
     def __init__(self, data):
         super(SeqLabel, self).__init__()
@@ -32,9 +33,10 @@ class SeqLabel(nn.Module):
         if self.use_crf:
             self.crf = CRF(label_size, self.gpu)
 
-
-    def calculate_loss(self, word_inputs, feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover, batch_label, mask):
-        outs = self.word_hidden(word_inputs,feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover)
+    def calculate_loss(self, word_inputs, feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths,
+                       char_seq_recover, batch_label, mask):
+        outs = self.word_hidden(word_inputs, feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths,
+                                char_seq_recover)
         batch_size = word_inputs.size(0)
         seq_len = word_inputs.size(1)
         if self.use_crf:
@@ -45,39 +47,39 @@ class SeqLabel(nn.Module):
             outs = outs.view(batch_size * seq_len, -1)
             score = F.log_softmax(outs, 1)
             total_loss = loss_function(score, batch_label.view(batch_size * seq_len))
-            _, tag_seq  = torch.max(score, 1)
+            _, tag_seq = torch.max(score, 1)
             tag_seq = tag_seq.view(batch_size, seq_len)
         if self.average_batch:
             total_loss = total_loss / batch_size
         return total_loss, tag_seq
 
-
-    def forward(self, word_inputs, feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover, mask):
-        outs = self.word_hidden(word_inputs,feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover)
+    def forward(self, word_inputs, feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover,
+                mask):
+        outs = self.word_hidden(word_inputs, feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths,
+                                char_seq_recover)
         batch_size = word_inputs.size(0)
         seq_len = word_inputs.size(1)
         if self.use_crf:
             scores, tag_seq = self.crf._viterbi_decode(outs, mask)
         else:
             outs = outs.view(batch_size * seq_len, -1)
-            _, tag_seq  = torch.max(outs, 1)
+            _, tag_seq = torch.max(outs, 1)
             tag_seq = tag_seq.view(batch_size, seq_len)
             ## filter padded position with zero
             tag_seq = mask.long() * tag_seq
         return tag_seq
 
-
     # def get_lstm_features(self, word_inputs, word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover):
     #     return self.word_hidden(word_inputs, word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover)
 
-
-    def decode_nbest(self, word_inputs, feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover, mask, nbest):
+    def decode_nbest(self, word_inputs, feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths,
+                     char_seq_recover, mask, nbest):
         if not self.use_crf:
             print("Nbest output is currently supported only for CRF! Exit...")
             exit(0)
-        outs = self.word_hidden(word_inputs,feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover)
+        outs = self.word_hidden(word_inputs, feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths,
+                                char_seq_recover)
         batch_size = word_inputs.size(0)
         seq_len = word_inputs.size(1)
         scores, tag_seq = self.crf._viterbi_decode_nbest(outs, mask, nbest)
         return scores, tag_seq
-
