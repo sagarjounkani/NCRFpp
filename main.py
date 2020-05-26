@@ -21,6 +21,8 @@ from utils.metric import get_ner_fmeasure
 from model.seqlabel import SeqLabel
 from model.sentclassifier import SentClassifier
 from utils.data import Data
+from sklearn_crfsuite.metrics import flat_classification_report, sequence_accuracy_score
+
 
 try:
     import cPickle as pickle
@@ -188,6 +190,9 @@ def evaluate(data, model, name, nbest=None):
     decode_time = time.time() - start_time
     speed = len(instances) / decode_time
     acc, p, r, f = get_ner_fmeasure(gold_results, pred_results, data.tagScheme)
+    print("Classification report: \n", flat_classification_report(gold_results, pred_results))
+    print(f"Sequence accuracy score: {sequence_accuracy_score(gold_results, pred_results)}")
+    data.seq_acc = sequence_accuracy_score(gold_results, pred_results)
     if nbest and not data.sentence_classification:
         return speed, acc, p, r, f, nbest_pred_results, pred_scores
     return speed, acc, p, r, f, pred_results, pred_scores
@@ -514,6 +519,7 @@ def load_model_decode(data, name):
         name, time_cost, speed, acc, p, r, f))
     else:
         print("%s: time:%.2fs, speed:%.2fst/s; acc: %.4f" % (name, time_cost, speed, acc))
+    data.results = "time:%.2fs, speed:%.2fst/s, acc: %.4f, p: %.4f, r: %.4f, f: %.4f" % (time_cost, speed, acc, p, r, f)
     return pred_results, pred_scores
 
 
@@ -602,5 +608,6 @@ if __name__ == '__main__':
             data.write_nbest_decoded_results(decode_results, pred_scores, 'raw')
         else:
             data.write_decoded_results(decode_results, 'raw')
+        data.write_eval_results()
     else:
         print("Invalid argument! Please use valid arguments! (train/test/decode)")

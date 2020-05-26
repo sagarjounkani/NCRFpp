@@ -107,6 +107,10 @@ class Data:
         self.HP_momentum = 0
         self.HP_l2 = 1e-8
 
+        # added by sagarj
+        self.results = None
+        self.seq_acc = None
+
     def show_data_summary(self):
 
         print("++" * 50)
@@ -553,6 +557,13 @@ class Data:
         if self.sentence_classification:
             self.seg = False
             self.use_crf = False
+
+    def write_eval_results(self):
+        fout = open('/'.join(self.decode_dir.split("/")[:-1])+"/eval.out", 'w')
+        fout.write("file:" + self.raw_dir + ", ")
+        fout.write("seq_acc:"+format(self.seq_acc, '.2f') + ", ")
+        fout.write(self.results)
+        fout.close()
 
 
 def config_file_to_dict(input_file):

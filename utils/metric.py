@@ -60,8 +60,7 @@ def get_ner_fmeasure(golden_lists, predict_lists, label_type="BMES"):
         print("gold_num = ", golden_num, " pred_num = ", predict_num, " right_num = ", right_num)
     else:
         print("Right token = ", right_tag, " All token = ", all_tag, " acc = ", accuracy)
-    print("Classification report: \n", flat_classification_report(golden_lists, predict_lists))
-    print(f"Sequence accuracy score: {sequence_accuracy_score(golden_lists, predict_lists)}")
+
     return accuracy, precision, recall, f_measure
 
 
