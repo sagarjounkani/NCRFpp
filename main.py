@@ -360,7 +360,10 @@ def batchify_sentence_classification_with_label(input_batch_list, gpu, if_train=
 def train(data):
     print("Training model...")
     data.show_data_summary()
-    save_data_name = data.model_dir + ".dset"
+    if data.dset_dir is None:
+        save_data_name = data.model_dir + ".dset"
+    else:
+        save_data_name = data.dset_dir + ".dset"
     data.save(save_data_name)
     if data.sentence_classification:
         model = SentClassifier(data)
@@ -516,20 +519,20 @@ def load_model_decode(data, name):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Tuning with NCRF++')
-    # parser.add_argument('--status', choices=['train', 'decode'], help='update algorithm', default='train')
+    # parser.add_argument('--runstate', choices=['train', 'decode'], help='update algorithm', default='train')
     parser.add_argument('--config', help='Configuration File', default='None')
     parser.add_argument('--wordemb', help='Embedding for words', default='None')
     parser.add_argument('--charemb', help='Embedding for chars', default='None')
     parser.add_argument('--status', choices=['train', 'decode'], help='update algorithm', default='train')
-    parser.add_argument('--savemodel', default="data/model/saved_model.lstmcrf.")
-    parser.add_argument('--savedset', help='Dir of saved data setting')
-    parser.add_argument('--train', default="data/conll03/train.bmes")
-    parser.add_argument('--dev', default="data/conll03/dev.bmes")
-    parser.add_argument('--test', default="data/conll03/test.bmes")
+    parser.add_argument('--savemodel', default="None")
+    parser.add_argument('--savedset', help='Dir of saved data setting', default="None")
+    parser.add_argument('--train', default="None")
+    parser.add_argument('--dev', default="None")
+    parser.add_argument('--test', default="None")
     parser.add_argument('--seg', default="True")
-    parser.add_argument('--raw')
-    parser.add_argument('--loadmodel')
-    parser.add_argument('--output')
+    parser.add_argument('--raw', default="None")
+    parser.add_argument('--loadmodel', default="None")
+    parser.add_argument('--output', default="None")
 
     args = parser.parse_args()
     data = Data()
@@ -544,6 +547,7 @@ if __name__ == '__main__':
         save_model_dir = args.savemodel
         data.word_emb_dir = args.wordemb
         data.char_emb_dir = args.charemb
+        data.status = args.runstate
         if args.seg.lower() == 'true':
             data.seg = True
         else:
@@ -551,6 +555,18 @@ if __name__ == '__main__':
         print("Seed num:", seed_num)
     else:
         data.read_config(args.config)
+        if args.train != 'None':
+            data.train_dir = args.train
+        if args.test != 'None':
+            data.test_dir = args.test
+        if args.dev != 'None':
+            data.dev_dir = args.dev
+        if args.savemodel != 'None':
+            data.model_dir = args.savemodel
+        if args.savedset != 'None':
+            data.dset_dir = args.savedset
+        data.status = args.status
+
     # data.show_data_summary()
     status = data.status.lower()
     print("Seed num:", seed_num)
@@ -566,12 +582,21 @@ if __name__ == '__main__':
     elif status == 'decode':
         print("MODEL: decode")
         data.load(data.dset_dir)
-        data.read_config(args.config)
+
+        if args.raw != 'None':
+            data.raw_dir = args.raw
+        if args.loadmodel != 'None':
+            data.load_model_dir = args.loadmodel
+        if args.output != 'None':
+            data.decode_dir = args.output
+
+        # data.read_config(args.config)
+
         print(data.raw_dir)
         # exit(0)
         data.show_data_summary()
         data.generate_instance('raw')
-        print("nbest: %s" % (data.nbest))
+        print("nbest: %s" % data.nbest)
         decode_results, pred_scores = load_model_decode(data, 'raw')
         if data.nbest and not data.sentence_classification:
             data.write_nbest_decoded_results(decode_results, pred_scores, 'raw')
