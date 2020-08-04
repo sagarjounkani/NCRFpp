@@ -6,6 +6,7 @@
 from __future__ import print_function
 
 import warnings
+
 warnings.filterwarnings("ignore")
 
 import time
@@ -20,9 +21,8 @@ import numpy as np
 from utils.metric import get_ner_fmeasure
 from model.seqlabel import SeqLabel
 from model.sentclassifier import SentClassifier
-from utils.data import Data
+from NCRFpp.utils.data import Data
 from sklearn_crfsuite.metrics import flat_classification_report, sequence_accuracy_score
-
 
 try:
     import cPickle as pickle
@@ -436,7 +436,7 @@ def train(data):
                 temp_cost = temp_time - temp_start
                 temp_start = temp_time
                 print("     Instance: %s; Time: %.2fs; loss: %.4f; acc: %s/%s=%.4f" % (
-                end, temp_cost, sample_loss, right_token, whole_token, (right_token + 0.) / whole_token))
+                    end, temp_cost, sample_loss, right_token, whole_token, (right_token + 0.) / whole_token))
                 if sample_loss > 1e8 or str(sample_loss) == "nan":
                     print("ERROR: LOSS EXPLOSION (>1e8) ! PLEASE SET PROPER PARAMETERS AND STRUCTURE! EXIT....")
                     exit(1)
@@ -448,12 +448,12 @@ def train(data):
         temp_time = time.time()
         temp_cost = temp_time - temp_start
         print("     Instance: %s; Time: %.2fs; loss: %.4f; acc: %s/%s=%.4f" % (
-        end, temp_cost, sample_loss, right_token, whole_token, (right_token + 0.) / whole_token))
+            end, temp_cost, sample_loss, right_token, whole_token, (right_token + 0.) / whole_token))
 
         epoch_finish = time.time()
         epoch_cost = epoch_finish - epoch_start
         print("Epoch: %s training finished. Time: %.2fs, speed: %.2fst/s,  total loss: %s" % (
-        idx, epoch_cost, train_num / epoch_cost, total_loss))
+            idx, epoch_cost, train_num / epoch_cost, total_loss))
         print("totalloss:", total_loss)
         if total_loss > 1e8 or str(total_loss) == "nan":
             print("ERROR: LOSS EXPLOSION (>1e8) ! PLEASE SET PROPER PARAMETERS AND STRUCTURE! EXIT....")
@@ -466,7 +466,7 @@ def train(data):
         if data.seg:
             current_score = f
             print("Dev: time: %.2fs, speed: %.2fst/s; acc: %.4f, p: %.4f, r: %.4f, f: %.4f" % (
-            dev_cost, speed, acc, p, r, f))
+                dev_cost, speed, acc, p, r, f))
         else:
             current_score = acc
             print("Dev: time: %.2fs speed: %.2fst/s; acc: %.4f" % (dev_cost, speed, acc))
@@ -486,7 +486,7 @@ def train(data):
         test_cost = test_finish - dev_finish
         if data.seg:
             print("Test: time: %.2fs, speed: %.2fst/s; acc: %.4f, p: %.4f, r: %.4f, f: %.4f" % (
-            test_cost, speed, acc, p, r, f))
+                test_cost, speed, acc, p, r, f))
         else:
             print("Test: time: %.2fs, speed: %.2fst/s; acc: %.4f" % (test_cost, speed, acc))
         gc.collect()
@@ -507,7 +507,10 @@ def load_model_decode(data, name):
     # else:
     #     model.load_state_dict(torch.load(model_dir))
     #     # model = torch.load(model_dir)
-    model.load_state_dict(torch.load(data.load_model_dir))
+    if torch.cuda.is_available():
+        model.load_state_dict(torch.load(data.load_model_dir))
+    else:
+        model.load_state_dict(torch.load(data.load_model_dir, map_location=torch.device('cpu')))
 
     print("Decode %s data, nbest: %s ..." % (name, data.nbest))
     start_time = time.time()
@@ -516,7 +519,7 @@ def load_model_decode(data, name):
     time_cost = end_time - start_time
     if data.seg:
         print("%s: time:%.2fs, speed:%.2fst/s; acc: %.4f, p: %.4f, r: %.4f, f: %.4f" % (
-        name, time_cost, speed, acc, p, r, f))
+            name, time_cost, speed, acc, p, r, f))
     else:
         print("%s: time:%.2fs, speed:%.2fst/s; acc: %.4f" % (name, time_cost, speed, acc))
     data.results = "time:%.2fs, speed:%.2fst/s, acc: %.4f, p: %.4f, r: %.4f, f: %.4f" % (time_cost, speed, acc, p, r, f)
@@ -603,6 +606,11 @@ if __name__ == '__main__':
         data.show_data_summary()
         data.generate_instance('raw')
         print("nbest: %s" % data.nbest)
+
+        if not torch.cuda.is_available():
+            data.HP_gpu = False
+        data.nbest = 2
+
         decode_results, pred_scores = load_model_decode(data, 'raw')
         if data.nbest and not data.sentence_classification:
             data.write_nbest_decoded_results(decode_results, pred_scores, 'raw')

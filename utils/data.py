@@ -6,8 +6,8 @@
 from __future__ import print_function
 from __future__ import absolute_import
 import sys
-from .alphabet import Alphabet
-from .functions import *
+from NCRFpp.utils.alphabet import Alphabet
+from NCRFpp.utils.functions import *
 
 try:
     import cPickle as pickle
