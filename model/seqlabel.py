@@ -9,8 +9,8 @@ from __future__ import absolute_import
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .wordsequence import WordSequence
-from .crf import CRF
+from NCRFpp.model.wordsequence import WordSequence
+from NCRFpp.model.crf import CRF
 
 
 class SeqLabel(nn.Module):
