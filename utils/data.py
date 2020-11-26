@@ -8,6 +8,7 @@ from __future__ import absolute_import
 import sys
 from NCRFpp.utils.alphabet import Alphabet
 from NCRFpp.utils.functions import *
+import torch
 
 try:
     import cPickle as pickle
@@ -19,23 +20,25 @@ UNKNOWN = "</unk>"
 PADDING = "</pad>"
 
 
+@torch.jit.script
 class Data:
     def __init__(self):
+        # super(Data, self).__init__()
         self.sentence_classification = False
         self.MAX_SENTENCE_LENGTH = 250
         self.MAX_WORD_LENGTH = -1
         self.number_normalized = True
         self.norm_word_emb = False
         self.norm_char_emb = False
-        self.word_alphabet = Alphabet('word')
-        self.char_alphabet = Alphabet('character')
+        self.word_alphabet = Alphabet('word', label=False, keep_growing=True)
+        self.char_alphabet = Alphabet('character', label=False, keep_growing=True)
 
         self.feature_name = []
         self.feature_alphabets = []
         self.feature_num = len(self.feature_alphabets)
         self.feat_config = None
 
-        self.label_alphabet = Alphabet('label', True)
+        self.label_alphabet = Alphabet('label', label=True, keep_growing=True)
         self.tagScheme = "NoSeg"  ## BMES/BIO
         self.split_token = ' ||| '
         self.seg = True
@@ -111,6 +114,7 @@ class Data:
         self.results = None
         self.seq_acc = None
 
+    @torch.jit.unused
     def show_data_summary(self):
 
         print("++" * 50)
@@ -149,7 +153,7 @@ class Data:
         print("     FEATURE num: %s" % (self.feature_num))
         for idx in range(self.feature_num):
             print("         Fe: %s  alphabet  size: %s" % (
-            self.feature_alphabets[idx].name, self.feature_alphabet_sizes[idx]))
+                self.feature_alphabets[idx].name, self.feature_alphabet_sizes[idx]))
             print(
                 "         Fe: %s  embedding  dir: %s" % (self.feature_alphabets[idx].name, self.feature_emb_dirs[idx]))
             print(
@@ -188,6 +192,7 @@ class Data:
         print("++" * 50)
         sys.stdout.flush()
 
+    @torch.jit.unused
     def initial_feature_alphabets(self):
         if self.sentence_classification:
             ## if sentence classification data format, splited by '\t'
@@ -216,6 +221,7 @@ class Data:
                     self.norm_feature_embs[idx] = self.feat_config[self.feature_name[idx]]['emb_norm']
         # exit(0)
 
+    @torch.jit.unused
     def build_alphabet(self, input_file):
         in_lines = open(input_file, 'r').readlines()
         for line in in_lines:
@@ -277,6 +283,7 @@ class Data:
         if self.sentence_classification:
             self.tagScheme = "Not sequence labeling task"
 
+    @torch.jit.unused
     def fix_alphabet(self):
         self.word_alphabet.close()
         self.char_alphabet.close()
@@ -284,6 +291,7 @@ class Data:
         for idx in range(self.feature_num):
             self.feature_alphabets[idx].close()
 
+    @torch.jit.unused
     def build_pretrain_emb(self):
         if self.word_emb_dir:
             print("Load pretrained word embedding, norm: %s, dir: %s" % (self.norm_word_emb, self.word_emb_dir))
@@ -300,11 +308,12 @@ class Data:
         for idx in range(self.feature_num):
             if self.feature_emb_dirs[idx]:
                 print("Load pretrained feature %s embedding:, norm: %s, dir: %s" % (
-                self.feature_name[idx], self.norm_feature_embs[idx], self.feature_emb_dirs[idx]))
+                    self.feature_name[idx], self.norm_feature_embs[idx], self.feature_emb_dirs[idx]))
                 self.pretrain_feature_embeddings[idx], self.feature_emb_dims[idx] = build_pretrain_embedding(
                     self.feature_emb_dirs[idx], self.feature_alphabets[idx], self.feature_emb_dims[idx],
                     self.norm_feature_embs[idx])
 
+    @torch.jit.unused
     def generate_instance(self, name):
         self.fix_alphabet()
         if name == "train":
@@ -330,6 +339,7 @@ class Data:
         else:
             print("Error: you can only generate train/dev/test instance! Illegal input:%s" % (name))
 
+    @torch.jit.unused
     def write_decoded_results(self, predict_results, name):
 
         sent_num = len(predict_results)
@@ -354,24 +364,27 @@ class Data:
                 for idy in range(sent_length):
                     ## content_list[idx] is a list with [word, char, label]
                     fout.write((content_list[idx][0][idy].encode('utf-8') +
-                               b" " +
-                               predict_results[idx][idy].encode('utf-8') +
-                               b'\n').decode('utf-8'))
+                                b" " +
+                                predict_results[idx][idy].encode('utf-8') +
+                                b'\n').decode('utf-8'))
                 fout.write('\n')
         fout.close()
         print("Predict %s result has been written into file. %s" % (name, self.decode_dir))
 
+    @torch.jit.unused
     def load(self, data_file):
         f = open(data_file, 'rb')
         tmp_dict = pickle.load(f)
         f.close()
         self.__dict__.update(tmp_dict)
 
+    @torch.jit.unused
     def save(self, save_file):
         f = open(save_file, 'wb')
         pickle.dump(self.__dict__, f, 2)
         f.close()
 
+    @torch.jit.unused
     def write_nbest_decoded_results(self, predict_results, pred_scores, name):
         ## predict_results : [whole_sent_num, nbest, each_sent_length]
         ## pred_scores: [whole_sent_num, nbest]
@@ -411,6 +424,7 @@ class Data:
         fout.close()
         print("Predict %s %s-best result has been written into file. %s" % (name, nbest, self.decode_dir))
 
+    @torch.jit.unused
     def read_config(self, config_file):
         config = config_file_to_dict(config_file)
         ## read data:
@@ -558,10 +572,11 @@ class Data:
             self.seg = False
             self.use_crf = False
 
+    @torch.jit.unused
     def write_eval_results(self):
-        fout = open('/'.join(self.decode_dir.split("/")[:-1])+"/eval.out", 'w')
+        fout = open('/'.join(self.decode_dir.split("/")[:-1]) + "/eval.out", 'w')
         fout.write("file:" + self.raw_dir + ", ")
-        fout.write("seq_acc:"+format(self.seq_acc, '.2f') + ", ")
+        fout.write("seq_acc:" + format(self.seq_acc, '.2f') + ", ")
         fout.write(self.results)
         fout.close()
 

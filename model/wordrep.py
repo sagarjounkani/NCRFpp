@@ -11,6 +11,7 @@ import numpy as np
 from .charbilstm import CharBiLSTM
 from .charbigru import CharBiGRU
 from .charcnn import CharCNN
+from typing import List
 
 
 class WordRep(nn.Module):
@@ -81,7 +82,8 @@ class WordRep(nn.Module):
             pretrain_emb[index, :] = np.random.uniform(-scale, scale, [1, embedding_dim])
         return pretrain_emb
 
-    def forward(self, word_inputs, feature_inputs, word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover):
+    # @torch.jit.script_method
+    def forward(self, word_inputs, feature_inputs: List[torch.Tensor], word_seq_lengths, char_inputs, char_seq_lengths, char_seq_recover):
         """
             input:
                 word_inputs: (batch_size, sent_len)
@@ -93,6 +95,7 @@ class WordRep(nn.Module):
             output:
                 Variable(batch_size, sent_len, hidden_dim)
         """
+
         batch_size = word_inputs.size(0)
         sent_len = word_inputs.size(1)
 
@@ -100,21 +103,39 @@ class WordRep(nn.Module):
 
         word_list = [word_embs]
         if not self.sentence_classification:
-            for idx in range(self.feature_num):
-                word_list.append(self.feature_embeddings[idx](feature_inputs[idx]))
+
+            # original code
+            # for idx in range(self.feature_num):
+            #     word_list.append(self.feature_embeddings[idx](feature_inputs[idx]))
+
+            # adding code for torch.jit.script compatibility
+            for idx, feature_embedding in enumerate(self.feature_embeddings):
+                word_list.append(feature_embedding(feature_inputs[idx]))
+
         if self.use_char:
             ## calculate char lstm last hidden
             # print("charinput:", char_inputs)
             # exit(0)
-            char_features = self.char_feature.get_last_hiddens(char_inputs, char_seq_lengths.cpu().numpy())
+
+            # original code
+            # char_features = self.char_feature.get_last_hiddens(char_inputs, char_seq_lengths.cpu().numpy())
+
+            # adding code for torch.jit.script compatibility
+            char_features = self.char_feature.get_last_hiddens(char_inputs, char_seq_lengths.cpu())
+
             char_features = char_features[char_seq_recover]
             char_features = char_features.view(batch_size, sent_len, -1)
             ## concat word and char together
             word_list.append(char_features)
             word_embs = torch.cat([word_embs, char_features], 2)
             if self.char_all_feature:
-                char_features_extra = self.char_feature_extra.get_last_hiddens(char_inputs,
-                                                                               char_seq_lengths.cpu().numpy())
+                # original code
+                # char_features_extra = self.char_feature_extra.get_last_hiddens(char_inputs,
+                #                                                                char_seq_lengths.cpu().numpy())
+
+                # adding code for torch.jit.script compatibility
+                char_features_extra = self.char_feature_extra.get_last_hiddens(char_inputs, char_seq_lengths.cpu())
+
                 char_features_extra = char_features_extra[char_seq_recover]
                 char_features_extra = char_features_extra.view(batch_size, sent_len, -1)
                 ## concat word and char together
